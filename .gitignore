@@ -1,0 +1,28 @@
+# Rust / Soroban
+target/
+**/*.rs.bk
+*.wasm
+.stellar/
+.soroban/
+
+# Node
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
