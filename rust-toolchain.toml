@@ -1,0 +1,5 @@
+[toolchain]
+# soroban-sdk 29 needs Rust >= 1.91; stellar-cli 28 needs >= 1.93.
+channel = "stable"
+targets = ["wasm32v1-none"]
+components = ["rustfmt", "clippy"]

@@ -7,10 +7,27 @@ two Soroban smart contracts (`tf-competition`, `tf-rewards`), the generated
 TypeScript clients the product consumes, and the technical architecture for the
 Noether integration.
 
-> **Status:** design & scaffolding. Contracts are specified here and implemented
-> against the milestones in [`docs/ROADMAP.md`](docs/ROADMAP.md). Everything in
-> this repository is MIT-licensed so other Stellar builders can reuse the
-> escrow + merkle-distribution and on-chain revenue-share patterns.
+> **Status:** the Soroban workspace is initialized. `tf-competition` builds,
+> has its config and admin entrypoints with tests in CI, and the duel
+> entrypoints (create / join / cancel / settle) are next. Contracts are
+> specified in [`docs/CONTRACTS.md`](docs/CONTRACTS.md) and delivered against
+> [`docs/ROADMAP.md`](docs/ROADMAP.md). Everything in this repository is
+> MIT-licensed so other Stellar builders can reuse the escrow +
+> merkle-distribution and on-chain revenue-share patterns.
+
+## Build and test
+
+Requires Rust (the version comes from `rust-toolchain.toml`) and
+[`stellar-cli`](https://github.com/stellar/stellar-cli) 28.1.0.
+
+```sh
+make check   # fmt + clippy + unit tests + WASM build, same as CI
+make test    # cargo test
+make build   # stellar contract build -> target/wasm32v1-none/release/*.wasm
+```
+
+Pinned versions, testnet addresses (USDC SAC) and the deploy command:
+[`docs/SOROBAN-SETUP.md`](docs/SOROBAN-SETUP.md).
 
 ---
 
@@ -115,25 +132,27 @@ Two rules that shape everything below:
 
 ```
 TF-stellar/
-├── contracts/                  # Soroban workspace (Rust), Scaffold Stellar
+├── Cargo.toml                  # Soroban workspace (Rust), soroban-sdk 29
+├── contracts/
 │   ├── tf-competition/         # duel + battle royale escrow, merkle payouts
-│   └── tf-rewards/             # referral bindings, fee accrual, claims
-├── packages/
-│   ├── tf-competition-client/  # generated typed TS client
-│   └── tf-rewards-client/      # generated typed TS client
+│   └── tf-rewards/             # (tranche 1) referral bindings, fee accrual, claims
+├── packages/                   # (tranche 1) generated typed TS clients
+│   ├── tf-competition-client/
+│   └── tf-rewards-client/
+├── .github/workflows/ci.yml    # fmt, clippy, tests, WASM build on every push
 └── docs/
     ├── ARCHITECTURE.md         # full technical architecture + diagrams
     ├── CONTRACTS.md            # contract specs, storage, state machines
+    ├── SOROBAN-SETUP.md        # pinned versions, addresses, build/deploy commands
     ├── NOETHER-ADAPTER.md      # @repo/noether-sdk design
     ├── ONBOARDING.md           # wallets, auth, bridge + swap funding
     └── ROADMAP.md              # tranche deliverables and acceptance criteria
 ```
 
-The contract workspace is scaffolded with
-[Scaffold Stellar](https://github.com/AhaLabs/scaffold-stellar)
-(`stellar-scaffold-cli`) for watch-mode rebuild/redeploy, typed TS client
-generation, and Stellar Registry publishing so third parties can instantiate
-the contracts by name.
+The contract workspace follows the layout `stellar contract init` generates.
+TS clients come from `stellar contract bindings typescript`; Stellar Registry
+publishing (so third parties can instantiate the contracts by name) is planned
+for mainnet.
 
 ---
 
