@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Keep in sync with docs/SOROBAN-SETUP.md.
+  STELLAR_CLI_VERSION: "28.1.0"
+
+jobs:
+  contracts:
+    name: Soroban contracts — fmt, clippy, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads rust-toolchain.toml (stable + wasm32v1-none + rustfmt + clippy).
+      - name: Install Rust toolchain
+        run: rustup toolchain install && rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install stellar-cli
+        run: |
+          curl -sSfL -o /tmp/stellar.tgz \
+            "https://github.com/stellar/stellar-cli/releases/download/v${STELLAR_CLI_VERSION}/stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          sudo tar -xzf /tmp/stellar.tgz -C /usr/local/bin stellar
+          stellar --version
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Unit tests
+        run: cargo test
+
+      - name: Build WASM
+        run: stellar contract build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: contracts-wasm
+          path: target/wasm32v1-none/release/*.wasm
