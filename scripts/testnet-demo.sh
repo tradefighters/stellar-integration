@@ -40,11 +40,15 @@ invoke() {
     echo "$out" >&2
     exit 1
   fi
-  # A file, not an array: create() runs in a subshell.
-  echo "| $label | [\`${hash:0:12}…\`]($EXPLORER/$hash) |" >>"$ROWS_FILE"
   # The return value is the last line that isn't a CLI log line (none for
   # calls that return nothing).
-  grep -vE '^(ℹ️|🌎|✅|🔗|📅)' <<<"$out" | tail -1 || true
+  local ret
+  ret=$(grep -vE '^(ℹ️|🌎|✅|🔗|📅)' <<<"$out" | tail -1 | tr -d '"' || true)
+  # `%ID%` in a label becomes the return value (the new duel id).
+  label="${label//%ID%/$ret}"
+  # A file, not an array: create() runs in a subshell.
+  echo "| $label | [\`${hash:0:12}…\`]($EXPLORER/$hash) |" >>"$ROWS_FILE"
+  echo "$ret"
 }
 
 create() {
@@ -52,18 +56,17 @@ create() {
   now=$(date +%s)
   starts=$((now + DELAY))
   ends=$((starts + WINDOW))
-  invoke "duel $1: create_duel (player A, stake $STAKE)" tf-player-a create_duel \
+  invoke "duel %ID%: create_duel (player A, stake $STAKE)" tf-player-a create_duel \
     --creator "$A" \
-    --params "{\"stake\":\"$STAKE\",\"scc\":$SCC,\"starts_at\":$starts,\"ends_at\":$ends}" |
-    tr -d '"'
+    --params "{\"stake\":\"$STAKE\",\"scc\":$SCC,\"starts_at\":$starts,\"ends_at\":$ends}"
 }
 
-echo "Creating and joining duels 1 and 2, creating duel 3…" >&2
-D1=$(create 1)
+echo "Creating three duels, joining two, cancelling one…" >&2
+D1=$(create)
 invoke "duel $D1: join_duel (player B)" tf-player-b join_duel --duel_id "$D1" --player "$B" >/dev/null
-D2=$(create 2)
+D2=$(create)
 invoke "duel $D2: join_duel (player B)" tf-player-b join_duel --duel_id "$D2" --player "$B" >/dev/null
-D3=$(create 3)
+D3=$(create)
 invoke "duel $D3: cancel_duel (creator, refund)" tf-player-a cancel_duel --duel_id "$D3" --caller "$A" >/dev/null
 
 # Wait until both active duels have ended (+ margin for ledger close time).
