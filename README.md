@@ -246,9 +246,10 @@ sequenceDiagram
     TFC-->>TFR: accrue referral + creator share
 ```
 
-Outcomes `settle_duel` must handle: **win** (winner takes pool minus fee),
-**draw** (both stakes returned, no fee), and **refund** (unjoined or cancelled
-duel returns the creator's stake).
+Outcomes `settle_duel` handles: **win** (winner takes pool minus fee),
+**draw** (each player gets their stake back minus half the fee) and **issue**
+(the duel couldn't be scored: both stakes back in full). An unjoined duel, or
+a joined one before its start, is closed with `cancel_duel` and refunded in full.
 
 ---
 

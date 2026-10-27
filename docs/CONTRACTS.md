@@ -52,27 +52,29 @@ Two Soroban specifics the port has to respect and the Anchor original did not:
 
 ### Duel state machine
 
+As implemented in `contracts/tf-competition/src/lib.rs`:
+
 ```mermaid
 stateDiagram-v2
-    [*] --> Open: create_duel
-    Open --> Pending: join_duel
-    Open --> Cancelled: cancel_duel
-    Pending --> Active: start delay elapses
-    Pending --> Cancelled: cancel_duel (before start)
-    Active --> Settled: settle_duel
-    Cancelled --> [*]: refund stakes
+    [*] --> Open: create_duel (creator stake escrowed)
+    Open --> Active: join_duel (before starts_at)
+    Open --> Cancelled: cancel_duel (creator or resolver)
+    Active --> Cancelled: cancel_duel (resolver, before starts_at)
+    Active --> Settled: settle_duel (resolver, after ends_at)
+    Cancelled --> [*]: stakes refunded in full
     Settled --> [*]: payout
 
-    note right of Open
-        creator stake escrowed
-        no opponent yet
-    end note
-
     note right of Settled
-        Win  - winner takes pool minus fee
-        Draw - both stakes returned, no fee
+        Win   - winner takes pool minus fee
+        Draw  - each player gets stake minus half the fee
+        Issue - both stakes back in full, no fee
     end note
 ```
+
+"Waiting for the start" and "trading" are both `Active`; the difference comes
+from `starts_at`. The fee rate is copied into the duel at creation, so a later
+config change never alters a running duel. Fees follow the production Solana
+resolver: on a draw each player pays half of the fee.
 
 ### Battle royale state machine
 
@@ -116,7 +118,7 @@ fn set_admin(env, new_admin: Address);       // require_auth(admin)
 // ---- duels ----
 fn create_duel(env, creator, params: DuelParams) -> u64;
 fn join_duel(env, duel_id: u64, player: Address);
-fn cancel_duel(env, duel_id: u64);
+fn cancel_duel(env, duel_id: u64, caller: Address);         // creator or resolver
 fn settle_duel(env, duel_id: u64, outcome: DuelOutcome);   // require_auth(resolver)
 
 // ---- battle royales ----
@@ -152,9 +154,9 @@ struct Config {
 // persistent, keyed by id
 struct Duel {
     id: u64, creator: Address, opponent: Option<Address>,
-    stake: i128, total_pool: i128,
+    stake: i128, total_pool: i128, scc: u64,
     starts_at: u64, ends_at: u64,
-    status: DuelStatus, created_at: u64,
+    status: DuelStatus, fee_bps: u32, created_at: u64,
 }
 
 struct Battle {

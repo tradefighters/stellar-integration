@@ -60,10 +60,10 @@ duel instructions. The Soroban side maps them like this:
 | --- | --- | --- |
 | `initialize_config` | `__constructor(config)` | done |
 | `update_config`, `update_config_admin` | `set_config`, `set_admin` | done |
-| `initialize(seed, DuelParams)` | `create_duel(creator, params) -> id` | next |
-| `join` | `join_duel(id, player)` | next |
-| `cancel` | `cancel_duel(id)` | next |
-| `settle(DuelResult, winner)` | `settle_duel(id, DuelOutcome)` | next |
+| `initialize(seed, DuelParams)` | `create_duel(creator, params) -> id` | done |
+| `join` | `join_duel(id, player)` | done |
+| `cancel` | `cancel_duel(id, caller)` | done |
+| `settle(DuelResult, winner)` | `settle_duel(id, DuelOutcome)` | done |
 | `add_duel_prize` / `withdraw_duel_contribution` | `add_duel_prize` / `withdraw_duel_contribution` | tranche 1 |
 | `close_duel` | not needed: no rent to reclaim; entries expire by TTL once settled | — |
 
@@ -82,7 +82,16 @@ Decisions taken during the init:
 - **`scc`** (virtual starting capital used by the off-chain margin engine) is
   kept as on Solana: `u64`, USD with 6 decimals.
 - **Fee bound:** `fee_bps` is capped at 2 000 (20 %) in `validate_config`,
-  so a bad config can never take most of a pool.
+  so a bad config can never take most of a pool. The rate is copied into
+  each duel at creation, and the USDC token can't change after the deploy.
+- **Fees follow production:** 5 % of the pool (`platformFees` default in the
+  product database). On a `Win` the winner gets the pool minus the fee; on a
+  `Draw` each player pays half of it, as the Solana resolver does; `Issue`
+  refunds in full.
+- **Join before the start only**, so both players trade the full window.
+- **Cancel:** the creator or the resolver while the duel is `Open`; only the
+  resolver once both stakes are in, and only before `starts_at`. After the
+  start a duel that can't be scored is closed with `settle_duel(Issue)`.
 - **`set_admin` needs both signatures** (current and new admin), so the role
   can't be sent to an address nobody controls.
 - **TTL:** instance storage is extended to 30 days on every call; a duel
@@ -101,17 +110,28 @@ make test                         # cargo test
 make build                        # stellar contract build
 ```
 
-Testnet deploy (not run yet: it waits for the duel entrypoints):
+## 5. Testnet deployment
+
+| | |
+| --- | --- |
+| Contract id | [`CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE`](https://stellar.expert/explorer/testnet/contract/CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE) |
+| Token | Circle testnet USDC, SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
+| Config | fee 5 %, stake 1 – 1 000 USDC, `min_start_delay` 60 s |
+| Admin | `GBYCIS4QKGFAK7AQJIDCNDQ55HG7N5N2U637QBTYQKD665FGJCFQRXCP` |
+| Resolver | `GA6T2PPNRDHKA5C25KJJ5QQ3GZLRL3KBDFU4AXRNYETE6EHMQDJBXMBG` |
+| Treasury | `GAKNLE5PTYPCH34253HG4KWCVJWFN52W3RVHO5DOIB6BPT5AO7G7QNVC` |
+
+Deployed with:
 
 ```sh
-stellar keys generate tf-admin --network testnet --fund
+stellar keys generate tf-admin --network testnet --fund   # same for tf-resolver, tf-treasury
 stellar contract deploy \
   --wasm target/wasm32v1-none/release/tf_competition.wasm \
   --source-account tf-admin --network testnet --alias tf-competition \
   -- --config '{
     "admin": "<G… tf-admin>",
-    "resolver": "<G… resolver>",
-    "treasury": "<G… treasury>",
+    "resolver": "<G… tf-resolver>",
+    "treasury": "<G… tf-treasury>",
     "usdc": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
     "fee_bps": 500,
     "creator_fee_bps": 0,
@@ -119,23 +139,37 @@ stellar contract deploy \
     "max_entry_fee": "10000000000",
     "min_start_delay": 60
   }'
-stellar contract invoke --id tf-competition --network testnet -- config
 ```
 
-## 5. Next steps (SCF resubmission, block 1)
+**Getting testnet USDC** without the Circle faucet: testnet has a deep
+XLM/USDC liquidity pool, so a funded account can swap.
 
-1. `create_duel` / `join_duel` / `cancel_duel` / `settle_duel` with USDC
-   transfers through the SAC token client, plus `DuelCreated`, `DuelJoined`,
-   `DuelSettled`, `DuelPayout` events.
-2. Tests for each entrypoint: happy path, every revert, unauthorized caller,
-   escrow balance back to zero after settle / cancel.
-3. Deploy to testnet, run a create → join → settle demo, record the
-   stellar.expert links and the contract id in the README.
+```sh
+USDC=USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+stellar keys generate tf-player-a --network testnet --fund
+stellar tx new change-trust --source-account tf-player-a --line $USDC --network testnet
+stellar tx new path-payment-strict-send --source-account tf-player-a \
+  --send-asset native --send-amount 3000000000 \
+  --destination "$(stellar keys address tf-player-a)" \
+  --dest-asset $USDC --dest-min 200000000 --network testnet
+```
 
-## 6. Open questions
+The treasury needs the USDC trustline too, to receive fees.
 
-- **Duel fee rate:** the Solana `ProgramConfig` has no `fee_bps`; the duel
-  fee rate is set elsewhere. Which value do we use on Stellar?
-- **`min_start_delay`:** which value for testnet and mainnet?
-- **Keys:** who holds the admin and resolver keys on testnet (and, before
-  mainnet, a multisig for the admin)?
+**Demo:** `scripts/testnet-demo.sh <contract-id> [stake]` runs a win, a draw
+and a cancellation and prints the transactions as a markdown table (needs
+`tf-resolver`, `tf-player-a`, `tf-player-b`). The table from the last run is
+in the README.
+
+## 6. Next steps
+
+1. Generated TypeScript client (`stellar contract bindings typescript`) for
+   the API and the web app.
+2. Battle royales, merkle claims, prize top-ups and `tf-rewards` (tranche 1).
+3. A demo video / GIF for the README.
+
+## 7. Open questions
+
+- **`min_start_delay`:** 60 s on testnet for the demo. Which value for mainnet?
+- **Keys:** the testnet admin / resolver / treasury keys were generated for
+  the demo. Before mainnet: who holds them, and a multisig for the admin?
