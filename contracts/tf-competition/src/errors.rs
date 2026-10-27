@@ -10,6 +10,9 @@ pub enum Error {
     InvalidConfig = 1,
     /// `set_config` tried to change the admin; use `set_admin`.
     AdminChangeNotAllowed = 2,
+    /// `set_config` tried to change the USDC token: live duels hold that
+    /// token, so it can never change on a deployed instance.
+    TokenChangeNotAllowed = 3,
     /// No duel with this id.
     DuelNotFound = 10,
     /// The duel is not in the status this entrypoint requires.
@@ -28,6 +31,10 @@ pub enum Error {
     InvalidWinner = 17,
     /// The duel has not ended yet.
     DuelNotEnded = 18,
+    /// `scc` outside `[MIN_SCC, MAX_SCC]`.
+    SccOutOfRange = 19,
+    /// The caller may not perform this action on this duel.
+    Unauthorized = 20,
     /// Checked arithmetic overflowed.
     MathOverflow = 30,
 }

@@ -94,6 +94,19 @@ pub struct Duel {
     pub starts_at: u64,
     pub ends_at: u64,
     pub status: DuelStatus,
+    /// Platform fee copied from the config at creation, so a later config
+    /// change never alters the terms of a duel already running.
+    pub fee_bps: u32,
     /// Unix seconds of the creation ledger.
     pub created_at: u64,
+}
+
+/// How the pool of a settled duel is split. Computed by `split_pool`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PoolSplit {
+    /// Paid to the winner, or to each player on a draw / issue.
+    pub to_creator: i128,
+    pub to_opponent: i128,
+    /// Paid to the treasury.
+    pub fee: i128,
 }
