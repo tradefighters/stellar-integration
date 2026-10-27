@@ -54,7 +54,6 @@ pub fn set_config(env: &Env, config: &Config) {
 }
 
 /// Returns the next duel id and increments the counter.
-#[expect(dead_code, reason = "used by create_duel, next step")]
 pub fn next_duel_id(env: &Env) -> u64 {
     let id: u64 = env
         .storage()
@@ -80,7 +79,6 @@ pub fn get_duel(env: &Env, id: u64) -> Option<Duel> {
 }
 
 /// Writes a duel and extends its TTL.
-#[expect(dead_code, reason = "used by the duel entrypoints, next step")]
 pub fn set_duel(env: &Env, duel: &Duel) {
     let key = DataKey::Duel(duel.id);
     env.storage().persistent().set(&key, duel);

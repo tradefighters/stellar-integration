@@ -7,9 +7,10 @@ two Soroban smart contracts (`tf-competition`, `tf-rewards`), the generated
 TypeScript clients the product consumes, and the technical architecture for the
 Noether integration.
 
-> **Status:** the Soroban workspace is initialized. `tf-competition` builds,
-> has its config and admin entrypoints with tests in CI, and the duel
-> entrypoints (create / join / cancel / settle) are next. Contracts are
+> **Status:** `tf-competition` runs 1v1 duels (create / join / cancel /
+> settle) with USDC escrow, tested in CI and deployed on Stellar testnet
+> (see [Testnet deployment](#testnet-deployment)). Battle royales, merkle
+> claims and `tf-rewards` come next. Contracts are
 > specified in [`docs/CONTRACTS.md`](docs/CONTRACTS.md) and delivered against
 > [`docs/ROADMAP.md`](docs/ROADMAP.md). Everything in this repository is
 > MIT-licensed so other Stellar builders can reuse the escrow +
@@ -28,6 +29,36 @@ make build   # stellar contract build -> target/wasm32v1-none/release/*.wasm
 
 Pinned versions, testnet addresses (USDC SAC) and the deploy command:
 [`docs/SOROBAN-SETUP.md`](docs/SOROBAN-SETUP.md).
+
+## Testnet deployment
+
+`tf-competition` is live on Stellar testnet, holding Circle's testnet USDC:
+
+| | |
+| --- | --- |
+| Contract | [`CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE`](https://stellar.expert/explorer/testnet/contract/CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE) |
+| USDC (SAC) | [`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
+| Config | platform fee 5 %, stake 1 – 1 000 USDC, start at least 60 s after creation |
+
+Demo transactions (a win, a draw and a cancellation), produced by
+[`scripts/testnet-demo.sh`](scripts/testnet-demo.sh). Each transaction page
+shows the contract events (`duel_created`, `duel_joined`, `duel_settled`,
+`duel_payout`, `duel_cancelled`) and the USDC transfers.
+
+| Step | Transaction |
+| --- | --- |
+| deploy `tf-competition` (constructor sets the config) | [`538823d93a22…`](https://stellar.expert/explorer/testnet/tx/538823d93a222c4f2444c2739224ea4afcdf90dba7c6fa5eb48f2b057ff5b08e) |
+| duel 3: `create_duel` — player A stakes 10 USDC | [`ee14edbc0729…`](https://stellar.expert/explorer/testnet/tx/ee14edbc072900e7388a82d9f5ad948841c4108ce94e4b5cb0e1184354a863df) |
+| duel 3: `join_duel` — player B stakes 10 USDC | [`bb511e7a365d…`](https://stellar.expert/explorer/testnet/tx/bb511e7a365d657b487abe562d1b2f18f894ff5e8964ab382a1881ba82f56f60) |
+| duel 3: `settle_duel Win(A)` — A gets 19 USDC, treasury 1 USDC | [`bf8ebe3a5e83…`](https://stellar.expert/explorer/testnet/tx/bf8ebe3a5e8366d1516582386b230279ae06b79b2fb42085b29ab046b98b47cd) |
+| duel 4: `create_duel` — player A stakes 10 USDC | [`7f5a6910d6d0…`](https://stellar.expert/explorer/testnet/tx/7f5a6910d6d018fd57a443c1a39b8eec1b4cd2f80fac33eee35ee6c1646879e2) |
+| duel 4: `join_duel` — player B stakes 10 USDC | [`666aeeff8145…`](https://stellar.expert/explorer/testnet/tx/666aeeff8145b8e22c517a7567f73fe1f28ab6b056fa5329c540c26f34845f4b) |
+| duel 4: `settle_duel Draw` — 9.5 USDC back to each, treasury 1 USDC | [`336240c850aa…`](https://stellar.expert/explorer/testnet/tx/336240c850aa80629c4895011a790086f32a91ebae193c55dd899b80aa919c5d) |
+| duel 5: `create_duel` — player A stakes 10 USDC | [`fda8d459a124…`](https://stellar.expert/explorer/testnet/tx/fda8d459a124894042be0e60d659c10197d9645a6af0ff2acd28a6dceb3cc7d2) |
+| duel 5: `cancel_duel` by the creator — 10 USDC refunded | [`bded91663c85…`](https://stellar.expert/explorer/testnet/tx/bded91663c85e623cfa204f82301d85b92b96685987eef8e0fd51d19903c3876) |
+
+After these three duels the escrow holds 0 USDC and the treasury holds the
+3 USDC of fees.
 
 ---
 
@@ -246,9 +277,10 @@ sequenceDiagram
     TFC-->>TFR: accrue referral + creator share
 ```
 
-Outcomes `settle_duel` must handle: **win** (winner takes pool minus fee),
-**draw** (both stakes returned, no fee), and **refund** (unjoined or cancelled
-duel returns the creator's stake).
+Outcomes `settle_duel` handles: **win** (winner takes pool minus fee),
+**draw** (each player gets their stake back minus half the fee) and **issue**
+(the duel couldn't be scored: both stakes back in full). An unjoined duel, or
+a joined one before its start, is closed with `cancel_duel` and refunded in full.
 
 ---
 
