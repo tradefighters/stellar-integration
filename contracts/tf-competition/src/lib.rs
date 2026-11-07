@@ -13,7 +13,9 @@
 //!                  └──── cancel_duel ───┴──► Cancelled (stakes refunded)
 //! ```
 //!
-//! Battle royales, prize top-ups and `tf-rewards` come in tranche 1.
+//! Duels addressed to a named trader come in tranche 1 (D3); battle royales,
+//! prize top-ups and merkle claims in tranche 2 (D5). Referral attribution
+//! uses Noether's own registry, so there is no second contract.
 #![no_std]
 
 mod errors;

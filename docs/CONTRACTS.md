@@ -1,14 +1,14 @@
 # Soroban Contracts
 
-Two contracts, both holding value in USDC through the Stellar Asset Contract
-(SAC) interface:
+One contract, holding value in USDC through the Stellar Asset Contract (SAC)
+interface:
 
 - **`tf-competition`** — escrow and prize distribution for 1v1 duels and
   multi-player battle royales.
-- **`tf-rewards`** — referral bindings and on-chain revenue sharing.
 
 `tf-competition` is a port of a program that has been running competitions in
-production on Solana; the security model carries over. `tf-rewards` is new.
+production on Solana; the security model carries over. Referral attribution
+uses Noether's referral registry (section 4).
 
 ---
 
@@ -17,7 +17,7 @@ production on Solana; the security model carries over. `tf-rewards` is new.
 1. [Porting model](#1-porting-model)
 2. [tf-competition](#2-tf-competition)
 3. [Merkle settlement](#3-merkle-settlement)
-4. [tf-rewards](#4-tf-rewards)
+4. [Referral attribution](#4-referral-attribution)
 5. [Security model](#5-security-model)
 6. [Testing strategy](#6-testing-strategy)
 
@@ -36,7 +36,7 @@ mechanical:
 | Claim receipt PDA | persistent storage `(competition, claimant)` | same double-claim guarantee |
 | SPL token CPI | SAC `transfer` via the token client | `require_auth` on the payer |
 | `#[account(mut, has_one = authority)]` | explicit `require_auth(&admin)` | authorization is never implicit |
-| Anchor events | `env.events().publish(...)` | consumed by the ingestor |
+| Anchor events | `#[contractevent]` structs with `.publish(&env)` | typed topics and fields, consumed by the ingestor |
 | Rent-exempt accounts | ledger entry TTL | extend TTL while a competition is live |
 
 Two Soroban specifics the port has to respect and the Anchor original did not:
@@ -56,18 +56,18 @@ As implemented in `contracts/tf-competition/src/lib.rs`:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Open: create_duel (creator stake escrowed)
+    [*] --> Open: create_duel (creator entry fee escrowed)
     Open --> Active: join_duel (before starts_at)
     Open --> Cancelled: cancel_duel (creator or resolver)
     Active --> Cancelled: cancel_duel (resolver, before starts_at)
     Active --> Settled: settle_duel (resolver, after ends_at)
-    Cancelled --> [*]: stakes refunded in full
+    Cancelled --> [*]: entry fees refunded in full
     Settled --> [*]: payout
 
     note right of Settled
         Win   - winner takes pool minus fee
-        Draw  - each player gets stake minus half the fee
-        Issue - both stakes back in full, no fee
+        Draw  - each player gets their entry fee minus half the fee
+        Issue - both entry fees back in full, no fee
     end note
 ```
 
@@ -109,18 +109,31 @@ Behaviours carried over from the production program:
 
 ### Entrypoints
 
+Built and deployed on testnet today:
+
 ```rust
-// ---- admin ----
-fn initialize(env, admin, usdc_sac, treasury, config: Config);
-fn set_config(env, config: Config);          // require_auth(admin)
-fn set_admin(env, new_admin: Address);       // require_auth(admin)
+// ---- config and admin ----
+fn __constructor(env, config: Config);       // runs with the deploy, once
+fn config(env) -> Config;
+fn set_config(env, config: Config);          // require_auth(admin); admin and usdc immutable here
+fn set_admin(env, new_admin: Address);       // require_auth(admin) AND require_auth(new_admin)
 
 // ---- duels ----
-fn create_duel(env, creator, params: DuelParams) -> u64;
+fn duel(env, duel_id: u64) -> Option<Duel>;
+fn create_duel(env, creator: Address, params: DuelParams) -> u64;
 fn join_duel(env, duel_id: u64, player: Address);
-fn cancel_duel(env, duel_id: u64, caller: Address);         // creator or resolver
-fn settle_duel(env, duel_id: u64, outcome: DuelOutcome);   // require_auth(resolver)
+fn cancel_duel(env, duel_id: u64, caller: Address);        // creator while Open, resolver before starts_at
+fn settle_duel(env, duel_id: u64, outcome: DuelOutcome);   // require_auth(resolver), after ends_at
+```
 
+There is no `initialize`: the config is a deploy argument to `__constructor`,
+so the instance cannot exist in an uninitialized state and nobody can
+front-run the initialization.
+
+Planned for the battle royale deliverable (D5, tranche 2) — not yet
+implemented:
+
+```rust
 // ---- battle royales ----
 fn create_battle(env, creator, params: BattleParams) -> u64;
 fn join_battle(env, battle_id: u64, player: Address);
@@ -137,8 +150,11 @@ fn claim_creator_fees(env, creator: Address);
 
 ### Storage
 
+`Config` and `Duel` are what the deployed contract stores today; the battle
+royale entries below land with D5.
+
 ```rust
-// instance
+// instance: DataKey::Config, plus DataKey::NextDuelId (u64 counter)
 struct Config {
     admin: Address,
     resolver: Address,        // may submit settlements
@@ -151,7 +167,7 @@ struct Config {
     min_start_delay: u64,     // seconds; time-lock before a competition may start
 }
 
-// persistent, keyed by id
+// persistent: DataKey::Duel(id)
 struct Duel {
     id: u64, creator: Address, opponent: Option<Address>,
     stake: i128, total_pool: i128, scc: u64,
@@ -241,74 +257,14 @@ second-preimage tricks on internal nodes.
 
 ---
 
-## 4. tf-rewards
+## 4. Referral attribution
 
-An accrual ledger. Two inflows, one outflow, all in USDC, all claimable
-permissionlessly by the person the balance belongs to.
-
-```mermaid
-flowchart LR
-    subgraph in["Inflows"]
-        F1["platform fees<br/>from tf-competition"]
-        F2["referral earnings<br/>from Noether's referral program"]
-    end
-
-    BIND["referral binding<br/>referrer to referee, one-time"]
-    SPLIT["split by basis-point config<br/>referrer / creator / platform"]
-    LEDGER[("per-user accrued balance")]
-    CLAIM["claim(user)"]
-    OUT["USDC to user wallet"]
-
-    F1 --> SPLIT
-    F2 --> SPLIT
-    BIND -.resolves referrer.-> SPLIT
-    SPLIT --> LEDGER
-    LEDGER --> CLAIM --> OUT
-
-    LEDGER -.event per accrual.-> IDX["event ingestor"]
-    CLAIM -.event per claim.-> IDX
-```
-
-### Entrypoints
-
-```rust
-fn initialize(env, admin, usdc_sac, shares: Shares);
-fn set_shares(env, shares: Shares);                    // require_auth(admin)
-fn bind_referral(env, referee: Address, referrer: Address);   // one-time, first deposit
-fn accrue(env, source: Source, amounts: Vec<(Address, i128)>); // require_auth(distributor)
-fn claim(env, user: Address);                          // require_auth(user)
-fn balance_of(env, user: Address) -> i128;             // read-only
-```
-
-```rust
-struct Shares {
-    referrer_bps: u32,
-    creator_bps: u32,
-    platform_bps: u32,   // referrer + creator + platform must equal 10_000
-}
-```
-
-### Design decisions
-
-- **Bindings are immutable.** A referral binds once, at the referee's first
-  deposit, and cannot be rewritten. Self-referral is rejected, as is binding a
-  referee who already has a referrer. This closes the obvious attack of
-  re-pointing a productive account at a new referrer.
-- **Accrual is credited, not pushed.** Distribution writes balances; users pull.
-  A user with no funded wallet, or who never comes back, does not cause a
-  transfer failure that rolls back everyone else's accrual.
-- **Claims are permissionless.** `claim` requires only the beneficiary's own
-  authorization. Nobody, including the admin, can withhold an accrued balance.
-- **Everything emits.** Every accrual and every claim publishes an event, so
-  the complete balance history is reconstructible off-chain and users can audit
-  what they were credited without trusting our database.
-- **Config is bounded.** Share basis points must sum to exactly 10,000 and are
-  validated on write, so a fat-fingered config cannot create or destroy value.
-
-Noether ships its own referral contract with fee-share economics. `tf-rewards`
-binds TradeFighters users under our code at that layer and redistributes our
-share onward to the individual referrers who brought them — composing with
-Noether's system rather than replacing it.
+We do not deploy a custom referral contract. Noether ships its own referral
+registry: every TradeFighters user is bound to the TradeFighters code there,
+and each trade emits a `trade_recorded` event (referee, referrer, fee, volume).
+That gives onchain attribution of the volume we bring to Noether without
+relying on our own database, and it is the source of the final-tranche metric
+described in [ROADMAP.md](ROADMAP.md#final-tranche-onchain-metric).
 
 ---
 
@@ -318,7 +274,7 @@ Carried over from the production Anchor program and adapted to Soroban:
 
 | Control | Implementation |
 | --- | --- |
-| Escrow authority | funds are held by the contract itself; no admin key can move escrowed stakes |
+| Escrow authority | funds are held by the contract itself; no admin key can move escrowed entry fees |
 | Authorization | explicit `require_auth` on every state-changing entrypoint; unauthorized paths are unit-tested |
 | Arithmetic | checked math on every balance operation; panic over wrap |
 | Time locks | `min_start_delay` between creation and `starts_at`, so a competition cannot be created and instantly settled |

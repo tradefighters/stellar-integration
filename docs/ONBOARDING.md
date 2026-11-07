@@ -91,13 +91,11 @@ flowchart TB
     BAL -->|yes| GO(["Enter competition"])
     BAL -->|no| WHAT{"What do they hold?"}
 
-    WHAT -->|"XLM or another<br/>Stellar asset"| SWAP["Swap path<br/>Stellar AMM, e.g. Soroswap"]
-    WHAT -->|"USDC on another chain"| BRIDGE["Bridge path<br/>e.g. Allbridge"]
-    WHAT -->|"fiat"| FIAT["Anchor Platform<br/>bank transfer on-ramp — later phase"]
+    WHAT -->|"XLM or another<br/>Stellar asset"| SWAP["Swap path<br/>Soroswap Routing API"]
+    WHAT -->|"USDC on another chain"| BRIDGE["Bridge path<br/>Allbridge Core"]
 
     SWAP --> QUOTE["Quote route:<br/>price, fees, slippage, ETA"]
     BRIDGE --> QUOTE
-    FIAT --> QUOTE
 
     QUOTE --> CONF["User confirms"]
     CONF --> EXEC["Execute + track progress"]
@@ -105,9 +103,10 @@ flowchart TB
     LAND --> GO
 ```
 
-All three routes sit behind **one deposit widget**. The user picks an amount
-and a source; the widget resolves the route, shows the all-in cost, and tracks
-progress to completion. They never choose a bridge provider by name.
+Both routes sit behind **one deposit widget**. The user picks an amount and a
+source; the widget resolves the route, shows the all-in cost, and tracks
+progress to completion. They never choose a bridge provider by name. Fiat
+on-ramps are out of scope for this award.
 
 ### Bridge integration
 
@@ -157,7 +156,7 @@ disappearing.
 The swap path ships fully functional against testnet liquidity. The bridge path
 is implemented and demonstrated against the providers' supported environments
 and gated behind a feature flag until mainnet, since bridges have no meaningful
-testnet story. Fiat on-ramp via Anchor Platform is scoped after mainnet launch.
+testnet story.
 
 ---
 

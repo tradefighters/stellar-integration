@@ -1,20 +1,21 @@
 # TF-Stellar
 
-**The competitive & social layer for perpetuals — on Stellar.**
+**The social network for on-chain traders, on Stellar.**
 
 This repository holds the Stellar/Soroban side of [TradeFighters](https://tradefighters.fun):
-two Soroban smart contracts (`tf-competition`, `tf-rewards`), the generated
-TypeScript clients the product consumes, and the technical architecture for the
-Noether integration.
+the `tf-competition` Soroban contract, the generated TypeScript clients the
+product consumes, and the technical architecture for the Noether integration.
+The full scope, budget and timeline of our SCF #46 Build submission are in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 > **Status:** `tf-competition` runs 1v1 duels (create / join / cancel /
 > settle) with USDC escrow, tested in CI and deployed on Stellar testnet
-> (see [Testnet deployment](#testnet-deployment)). Battle royales, merkle
-> claims and `tf-rewards` come next. Contracts are
+> (see [Testnet deployment](#testnet-deployment)). Challenges to a named
+> trader, battle royales and merkle claims come next. Contracts are
 > specified in [`docs/CONTRACTS.md`](docs/CONTRACTS.md) and delivered against
 > [`docs/ROADMAP.md`](docs/ROADMAP.md). Everything in this repository is
 > MIT-licensed so other Stellar builders can reuse the escrow +
-> merkle-distribution and on-chain revenue-share patterns.
+> merkle-distribution patterns.
 
 ## Build and test
 
@@ -38,7 +39,7 @@ Pinned versions, testnet addresses (USDC SAC) and the deploy command:
 | --- | --- |
 | Contract | [`CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE`](https://stellar.expert/explorer/testnet/contract/CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE) |
 | USDC (SAC) | [`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
-| Config | platform fee 5 %, stake 1 – 1 000 USDC, start at least 60 s after creation |
+| Config | platform fee 5 %, entry fee 1 – 1 000 USDC, start at least 60 s after creation |
 
 Demo transactions (a win, a draw and a cancellation), produced by
 [`scripts/testnet-demo.sh`](scripts/testnet-demo.sh). Each transaction page
@@ -48,29 +49,33 @@ shows the contract events (`duel_created`, `duel_joined`, `duel_settled`,
 | Step | Transaction |
 | --- | --- |
 | deploy `tf-competition` (constructor sets the config) | [`538823d93a22…`](https://stellar.expert/explorer/testnet/tx/538823d93a222c4f2444c2739224ea4afcdf90dba7c6fa5eb48f2b057ff5b08e) |
-| duel 3: `create_duel` — player A stakes 10 USDC | [`ee14edbc0729…`](https://stellar.expert/explorer/testnet/tx/ee14edbc072900e7388a82d9f5ad948841c4108ce94e4b5cb0e1184354a863df) |
-| duel 3: `join_duel` — player B stakes 10 USDC | [`bb511e7a365d…`](https://stellar.expert/explorer/testnet/tx/bb511e7a365d657b487abe562d1b2f18f894ff5e8964ab382a1881ba82f56f60) |
+| duel 3: `create_duel` — player A pays a 10 USDC entry fee | [`ee14edbc0729…`](https://stellar.expert/explorer/testnet/tx/ee14edbc072900e7388a82d9f5ad948841c4108ce94e4b5cb0e1184354a863df) |
+| duel 3: `join_duel` — player B pays a 10 USDC entry fee | [`bb511e7a365d…`](https://stellar.expert/explorer/testnet/tx/bb511e7a365d657b487abe562d1b2f18f894ff5e8964ab382a1881ba82f56f60) |
 | duel 3: `settle_duel Win(A)` — A gets 19 USDC, treasury 1 USDC | [`bf8ebe3a5e83…`](https://stellar.expert/explorer/testnet/tx/bf8ebe3a5e8366d1516582386b230279ae06b79b2fb42085b29ab046b98b47cd) |
-| duel 4: `create_duel` — player A stakes 10 USDC | [`7f5a6910d6d0…`](https://stellar.expert/explorer/testnet/tx/7f5a6910d6d018fd57a443c1a39b8eec1b4cd2f80fac33eee35ee6c1646879e2) |
-| duel 4: `join_duel` — player B stakes 10 USDC | [`666aeeff8145…`](https://stellar.expert/explorer/testnet/tx/666aeeff8145b8e22c517a7567f73fe1f28ab6b056fa5329c540c26f34845f4b) |
+| duel 4: `create_duel` — player A pays a 10 USDC entry fee | [`7f5a6910d6d0…`](https://stellar.expert/explorer/testnet/tx/7f5a6910d6d018fd57a443c1a39b8eec1b4cd2f80fac33eee35ee6c1646879e2) |
+| duel 4: `join_duel` — player B pays a 10 USDC entry fee | [`666aeeff8145…`](https://stellar.expert/explorer/testnet/tx/666aeeff8145b8e22c517a7567f73fe1f28ab6b056fa5329c540c26f34845f4b) |
 | duel 4: `settle_duel Draw` — 9.5 USDC back to each, treasury 1 USDC | [`336240c850aa…`](https://stellar.expert/explorer/testnet/tx/336240c850aa80629c4895011a790086f32a91ebae193c55dd899b80aa919c5d) |
-| duel 5: `create_duel` — player A stakes 10 USDC | [`fda8d459a124…`](https://stellar.expert/explorer/testnet/tx/fda8d459a124894042be0e60d659c10197d9645a6af0ff2acd28a6dceb3cc7d2) |
+| duel 5: `create_duel` — player A pays a 10 USDC entry fee | [`fda8d459a124…`](https://stellar.expert/explorer/testnet/tx/fda8d459a124894042be0e60d659c10197d9645a6af0ff2acd28a6dceb3cc7d2) |
 | duel 5: `cancel_duel` by the creator — 10 USDC refunded | [`bded91663c85…`](https://stellar.expert/explorer/testnet/tx/bded91663c85e623cfa204f82301d85b92b96685987eef8e0fd51d19903c3876) |
 
-After these three duels the escrow holds 0 USDC and the treasury holds the
-3 USDC of fees.
+These three duels put 50 USDC through the escrow and paid all of it back out:
+19 + 1 on the win, 9.5 + 9.5 + 1 on the draw, 10 refunded on the cancellation.
+The escrow for all three is back to zero, and they sent 2 USDC of fees to the
+treasury — a cancellation pays none. (The treasury's balance also carries
+1 USDC from an earlier settlement, which is why the duel ids start at 3.)
 
 ---
 
 ## What TradeFighters is
 
-TradeFighters turns perpetual futures trading into a skill-based sport. Users
-stake USDC to enter **1v1 duels** or multi-player **battle royales**, trade real
-perp markets for a fixed window, and the winners are paid out of an on-chain
-escrow — ranked by verified, reconstructed on-chain performance rather than
-screenshots.
+TradeFighters is the social network for on-chain traders: public profiles
+built from verifiable onchain results, the option to follow a trader, and
+skill-based competitions. Traders pay a USDC entry fee to enter **1v1 duels**
+or multi-player **battle royales**, trade real perp markets from their own
+wallets for a fixed window, and prizes are paid out of an onchain escrow,
+ranked by verified performance rather than screenshots.
 
-It runs today in closed beta on Solana with a multi-exchange backend
+Its first version ran on Solana with a multi-exchange backend
 (Pacifica, Hyperliquid, Phoenix) behind a single ports-and-adapters contract
 layer. This repository is how that whole product comes to Stellar.
 
@@ -94,7 +99,7 @@ So the Stellar work slots into interfaces that already run real competitions:
 | Exchange ports | `@repo/exchange-core` | `@repo/noether-sdk` — a fourth adapter |
 | Bridging ports | `@repo/bridge-core` (`BridgePort`) | Stellar as a bridge destination chain |
 | Escrow & prizes | Anchor program on Solana | `tf-competition` on Soroban |
-| Referral / rev-share | off-chain accounting | `tf-rewards` on Soroban, claimable |
+| Referral attribution | builder and referral codes on each venue | Noether referral registry, attribution onchain |
 | Auth | wallet adapter + Privy embedded | Stellar Wallets Kit + Privy |
 
 ---
@@ -116,7 +121,7 @@ flowchart TB
         direction LR
         CORE["@repo/exchange-core<br/>ports · unified types · capabilities"]
         NSDK["@repo/noether-sdk<br/>REST · WS · prepare-sign-submit"]
-        CLIENTS["generated contract clients<br/>tf-competition · tf-rewards"]
+        CLIENTS["generated contract client<br/>tf-competition"]
         NSDK -.implements.-> CORE
     end
 
@@ -134,11 +139,11 @@ flowchart TB
         NOETHER["Noether<br/>perp markets on Soroban"]
         ORACLE["SEP-40 oracle"]
         TFC["tf-competition<br/>duel + battle royale escrow"]
-        TFR["tf-rewards<br/>referral + revenue share"]
+        REFREG["Noether referral registry<br/>onchain volume attribution"]
         SAC["USDC · Stellar Asset Contract"]
         NOETHER --- ORACLE
         TFC --> SAC
-        TFR --> SAC
+        NOETHER --- REFREG
     end
 
     client ==> pkgs
@@ -162,14 +167,13 @@ Two rules that shape everything below:
 ## Repository layout
 
 ```
-TF-stellar/
+stellar-integration/
 ├── Cargo.toml                  # Soroban workspace (Rust), soroban-sdk 29
 ├── contracts/
-│   ├── tf-competition/         # duel + battle royale escrow, merkle payouts
-│   └── tf-rewards/             # (tranche 1) referral bindings, fee accrual, claims
+│   └── tf-competition/         # duel escrow today; battle royale + merkle payouts next
+├── scripts/testnet-demo.sh     # the three demo duels above, end to end
 ├── packages/                   # (tranche 1) generated typed TS clients
-│   ├── tf-competition-client/
-│   └── tf-rewards-client/
+│   └── tf-competition-client/
 ├── .github/workflows/ci.yml    # fmt, clippy, tests, WASM build on every push
 └── docs/
     ├── ARCHITECTURE.md         # full technical architecture + diagrams
@@ -201,9 +205,10 @@ Details: [`docs/NOETHER-ADAPTER.md`](docs/NOETHER-ADAPTER.md).
 
 ### 2. Soroban contracts
 
-`tf-competition` ports the escrow and prize logic; `tf-rewards` is new and
-handles referral bindings and revenue sharing. Both hold value in USDC through
-the Stellar Asset Contract interface, with checked arithmetic on every path.
+`tf-competition` ports the escrow and prize logic and holds value in USDC
+through the Stellar Asset Contract interface, with checked arithmetic on every
+path. Referral attribution uses Noether's own referral registry instead of a
+custom contract.
 
 Details: [`docs/CONTRACTS.md`](docs/CONTRACTS.md).
 
@@ -224,7 +229,7 @@ Details for 3 and 4: [`docs/ONBOARDING.md`](docs/ONBOARDING.md).
 ### 5. Backend: indexing and settlement
 
 A Stellar module in the NestJS API with Soroban RPC + Horizon clients, an event
-ingestor streaming `tf-competition` and `tf-rewards` events into Postgres, and
+ingestor streaming `tf-competition` and Noether referral events into Postgres, and
 the existing resolver retargeted at Soroban.
 
 ---
@@ -242,17 +247,16 @@ sequenceDiagram
     participant W as Web app
     participant API as NestJS API
     participant TFC as tf-competition
-    participant TFR as tf-rewards
     participant N as Noether
     participant R as Resolver
 
-    A->>W: create duel: stake, market, window
+    A->>W: create duel: entry fee, market, window
     W->>TFC: create_duel  (signed XDR)
-    TFC->>TFC: pull stake into escrow (USDC SAC)
+    TFC->>TFC: pull entry fee into escrow (USDC SAC)
     TFC-->>API: DuelCreated event
     B->>W: join duel
     W->>TFC: join_duel  (signed XDR)
-    TFC->>TFC: pull stake, status to Pending
+    TFC->>TFC: pull entry fee, status to Active
     TFC-->>API: DuelJoined event
 
     Note over TFC: start delay elapses
@@ -274,12 +278,11 @@ sequenceDiagram
     R->>TFC: settle_duel(winner) (signed XDR)
     TFC->>TFC: take platform fee, pay winner
     TFC-->>API: DuelSettled event
-    TFC-->>TFR: accrue referral + creator share
 ```
 
 Outcomes `settle_duel` handles: **win** (winner takes pool minus fee),
-**draw** (each player gets their stake back minus half the fee) and **issue**
-(the duel couldn't be scored: both stakes back in full). An unjoined duel, or
+**draw** (each player gets their entry fee back minus half the fee) and **issue**
+(the duel couldn't be scored: both entry fees back in full). An unjoined duel, or
 a joined one before its start, is closed with `cancel_duel` and refunded in full.
 
 ---
@@ -353,13 +356,14 @@ make double-claims impossible.
 
 ## Roadmap
 
-| Tranche | Deliverables | Target |
-| --- | --- | --- |
-| **1 — MVP** | Soroban contracts on testnet · Noether adapter + Stellar wallet auth · full duel loop on testnet | Dec 2026 – Jan 2027 |
-| **2 — Testnet** | Battle royales + `tf-rewards` live · bridge/swap deposit widget · audit-readiness pack | Feb – Mar 2027 |
-| **3 — Mainnet** | Mainnet deploy + Registry publish · production infra and runbooks · open-source SDK + docs | Apr – May 2027 |
+| Tranche | Deliverables | Target | Budget |
+| --- | --- | --- | --- |
+| **1, MVP** | Noether adapter · Stellar Wallets Kit, Freighter Connect, Privy · challenge-a-trader duel loop on testnet · Soroswap swap to USDC | January 2027 | $31,500 (350 h) |
+| **2, Testnet** | Verified trader profiles · follow a trader through Noether vaults · battle royale on public testnet · threat model and monitoring | February 2027 | $31,500 (350 h) |
+| **3, Mainnet** | Mainnet launch (Aquarius as fallback venue) · Allbridge inbound USDC · open-source release | March 2027 | $19,800 (220 h) |
 
-Acceptance criteria per deliverable are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Total $82,800 (920 h). Acceptance criteria and the final-tranche onchain metric
+are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 
@@ -367,10 +371,12 @@ Acceptance criteria per deliverable are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 [Scaffold Stellar](https://github.com/AhaLabs/scaffold-stellar) ·
 [Stellar Wallets Kit](https://stellarwalletskit.dev) ·
+[Freighter](https://www.freighter.app) ·
 [Privy](https://privy.io) ·
 [Soroswap](https://soroswap.finance) ·
 [Allbridge](https://allbridge.io) ·
-[Anchor Platform](https://developers.stellar.org/docs/tools/developer-tools/anchor-platform)
+[Aquarius](https://aqua.network) ·
+[Noether](https://docs.noether.exchange)
 
 ## License
 

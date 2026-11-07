@@ -1,8 +1,8 @@
 # Soroban setup — research notes and decisions
 
 How the contract workspace was set up, the versions it is pinned to and why,
-and the commands to build, test and deploy it. Facts below were checked on
-**2026-10-25**; re-check the versions before a mainnet deploy.
+and the commands to build, test and deploy it. Facts below were re-checked on
+**2026-11-07**; re-check the versions before a mainnet deploy.
 
 ---
 
@@ -10,9 +10,9 @@ and the commands to build, test and deploy it. Facts below were checked on
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Stellar protocol | **29** on testnet and mainnet | from `getNetwork` on `soroban-testnet.stellar.org` and `mainnet.sorobanrpc.com` |
-| `soroban-sdk` | **29.0.1** | latest stable; the SDK major version follows the protocol. `30.0.0-rc.1` exists but targets a protocol that is not live yet |
-| `stellar-cli` | **28.1.0** | latest release (2026-09-26); needs `soroban-sdk` ≥ 28 build tooling, which it has |
+| Stellar protocol | **30** on testnet, **29** on mainnet | from `getVersionInfo` on `soroban-testnet.stellar.org` (protocol 30, core 30.0.0) and `mainnet.sorobanrpc.com` (protocol 29). Testnet upgraded after the 2026-10-25 check; mainnet has not |
+| `soroban-sdk` | **29.0.1** | latest stable on crates.io. `30.0.0-rc.1` is published but is a release candidate, and protocol 30 is not live on mainnet; SDK 29 contracts run unchanged under protocol 30, so the pin stays until 30 is stable and on mainnet |
+| `stellar-cli` | **28.1.0** | the release we pinned on 2026-09-26, kept in sync with `STELLAR_CLI_VERSION` in `.github/workflows/ci.yml`; carries the `soroban-sdk` ≥ 28 build tooling. Not re-checked for a newer release on 2026-11-07 |
 | Rust | stable (≥ 1.93) | SDK 29 needs ≥ 1.91, stellar-cli 28 needs ≥ 1.93 |
 | WASM target | `wasm32v1-none` | the only target Soroban accepts since SDK 22; installed by `rust-toolchain.toml` |
 
@@ -64,7 +64,7 @@ duel instructions. The Soroban side maps them like this:
 | `join` | `join_duel(id, player)` | done |
 | `cancel` | `cancel_duel(id, caller)` | done |
 | `settle(DuelResult, winner)` | `settle_duel(id, DuelOutcome)` | done |
-| `add_duel_prize` / `withdraw_duel_contribution` | `add_duel_prize` / `withdraw_duel_contribution` | tranche 1 |
+| `add_duel_prize` / `withdraw_duel_contribution` | `add_duel_prize` / `withdraw_duel_contribution` | tranche 2, with D5 |
 | `close_duel` | not needed: no rent to reclaim; entries expire by TTL once settled | — |
 
 Decisions taken during the init:
@@ -116,7 +116,7 @@ make build                        # stellar contract build
 | --- | --- |
 | Contract id | [`CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE`](https://stellar.expert/explorer/testnet/contract/CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE) |
 | Token | Circle testnet USDC, SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-| Config | fee 5 %, stake 1 – 1 000 USDC, `min_start_delay` 60 s |
+| Config | fee 5 %, entry fee 1 – 1 000 USDC, `min_start_delay` 60 s |
 | Admin | `GBYCIS4QKGFAK7AQJIDCNDQ55HG7N5N2U637QBTYQKD665FGJCFQRXCP` |
 | Resolver | `GA6T2PPNRDHKA5C25KJJ5QQ3GZLRL3KBDFU4AXRNYETE6EHMQDJBXMBG` |
 | Treasury | `GAKNLE5PTYPCH34253HG4KWCVJWFN52W3RVHO5DOIB6BPT5AO7G7QNVC` |
@@ -165,7 +165,8 @@ in the README.
 
 1. Generated TypeScript client (`stellar contract bindings typescript`) for
    the API and the web app.
-2. Battle royales, merkle claims, prize top-ups and `tf-rewards` (tranche 1).
+2. Challenges to a named trader (tranche 1), battle royales and merkle claims
+   (tranche 2), as listed in [ROADMAP.md](ROADMAP.md).
 3. A demo video / GIF for the README.
 
 ## 7. Open questions
