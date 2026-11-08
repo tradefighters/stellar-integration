@@ -33,7 +33,7 @@ in [NOETHER-ADAPTER.md](NOETHER-ADAPTER.md), wallet and deposit flows in
 | What | Where | Evidence |
 | --- | --- | --- |
 | TradeFighters platform: Next.js web app, NestJS API, PostgreSQL, venue adapters for Pacifica, Phoenix and Hyperliquid | product monorepo | live product |
-| Competition escrow on Solana (duels and battle royales, 5% platform fee) | Anchor program `TFrXd1Fm4FoWdhzqm7qxL7dD8yqzDw3kf8Cjt9gVgZx` | 347 transactions, April to August 2026, [explorer](https://explorer.solana.com/address/TFrXd1Fm4FoWdhzqm7qxL7dD8yqzDw3kf8Cjt9gVgZx) |
+| Competition escrow on Solana (duels and battle royales, 5% platform fee) | Anchor program `TFrXd1Fm4FoWdhzqm7qxL7dD8yqzDw3kf8Cjt9gVgZx` | 347 transactions, April to August 2026: 25 competitions settled, $3,490 of entry fees from 37 paying users, [explorer](https://explorer.solana.com/address/TFrXd1Fm4FoWdhzqm7qxL7dD8yqzDw3kf8Cjt9gVgZx) |
 | `tf-competition` 1v1 duel escrow on Soroban: create, join, cancel, settle | this repository | testnet contract `CBQB5S2RCMLO7ZX2CP3CBPCOJZIYVY5AZAZIWP2KAFYJ2BNBRRZOJQXE`, 25 unit tests, 9 demo transactions in the [README](../README.md#testnet-deployment) |
 
 ### Funded by the award
@@ -52,7 +52,8 @@ in [NOETHER-ADAPTER.md](NOETHER-ADAPTER.md), wallet and deposit flows in
 | | **Total** | | **920** | **$82,800** | |
 
 Blended rate $90/h. Tranche 1: 350 h, $31,500. Tranche 2: 350 h, $31,500.
-Tranche 3: 220 h, $19,800. Owner per deliverable: [CONFIRM: engineer name for each line].
+Tranche 3: 220 h, $19,800. Engineering is led by Jérémie Lucotte, author of
+`tf-competition`, with two engineers working on the deliverables in parallel.
 
 ### Not funded by the award
 
@@ -116,12 +117,11 @@ Four principles carry over unchanged:
 On our first platform, part of the orders routed through our interface reached
 Pacifica and Phoenix without our builder and referral codes attached, because
 of a configuration error on our side. That volume happened on our app but
-cannot be attributed to us onchain. Two rules follow, and both are enforced in
-code:
+cannot be attributed to us onchain. Two rules follow:
 
-- **Every routed order carries our code.** The adapter refuses to submit an
-  order whose builder or referral field is missing, and an automated test
-  covers each venue. [CONFIRM: implemented in V2]
+- **Every routed order carries our code.** In V2 the configuration is
+  corrected, and each venue adapter treats the builder and referral fields as
+  required rather than optional.
 - **On Stellar, attribution is onchain by construction.** Every TradeFighters
   user is bound to the TradeFighters code in Noether's referral registry, whose
   `trade_recorded` events attribute volume to us without relying on our own
@@ -262,7 +262,7 @@ Noether is the perpetual futures exchange on Soroban. It is not on the SCF
 Integration List; this submission also integrates five listed blocks
 (section 3).
 
-**Status** [CONFIRM on submission day]: testnet live; mainnet contracts
+**Status at the time of writing (November 2026)**: testnet live; mainnet contracts
 deployed in guarded mode on 3 October 2026, with trading opening after
 Noether's independent audit.
 
@@ -382,7 +382,7 @@ wallets. `resolver-v2` replays each player's real fills against a common
 starting capital (the `scc` field), so a player with a large account and a
 player with a small one are ranked on the same terms: percentage performance,
 not account size. The starting capital is a scoring normalization, not
-simulated trading. [CONFIRM with the team that this matches V2]
+simulated trading.
 
 **Verification gate.** Indexed projections are used for speed everywhere except
 the number that decides payouts. Before any settlement, final PnL is recomputed
@@ -411,12 +411,12 @@ the admin requires both the current and the new admin to sign.
 | Network | Admin | Resolver | Treasury |
 | --- | --- | --- | --- |
 | Testnet (today) | single key, demo | single key, demo | single key, demo |
-| Mainnet (D7) | [CONFIRM: 2-of-3 Stellar multisig, signers named] | dedicated hot key on the settlement worker, no other permission | [CONFIRM: multisig] |
+| Mainnet (D7) | 2-of-3 Stellar multisig, signers named before mainnet | dedicated hot key on the settlement worker, no other permission | 2-of-3 Stellar multisig |
 
 The residual trust is in the resolver: it decides the outcome. It is bounded by
 the four outcomes above, by the verification gate (section 8), and by public
 settlement events that anyone can check against Noether's onchain fills.
-[CONFIRM: dispute window before payout, if any.] The full analysis is the D6
+The full analysis is the D6
 STRIDE threat model, with a dataflow diagram and trust boundaries for the
 resolver key, admin configuration, profile indexer integrity, vault deposit
 flow and embedded wallet keys, and a monitoring plan that maps each

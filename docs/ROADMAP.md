@@ -31,8 +31,8 @@ gantt
     D9 Open-source release                  :t3c, 2027-03-15, 2027-03-31
 ```
 
-Dates assume an award in mid-December 2026. Two engineers full time
-(about 80 hours a week): [CONFIRM: names, one owner per deliverable].
+Dates assume an award in mid-December 2026. Two engineers full time (about
+80 hours a week combined), led by Jérémie Lucotte.
 
 ---
 
@@ -157,14 +157,15 @@ mainnet competition, wallets controlled by the team excluded:
   onchain to the TradeFighters referral code (`trade_recorded` events in
   Noether's referral registry).
 - **Basis:** our builder and referral codes carried $3.13M of volume on Solana
-  between [CONFIRM: April] and August 2026, about $1.4M per 60 days. The
+  between April and August 2026, about $1.4M per 60 days. The
   threshold assumes about 18% of that pace moves to Stellar in the first 60
   days, conservative because traders must bring funds to Stellar and Noether's
   liquidity is new.
 - **Fallback, only if Noether mainnet trading is not open when we launch on
-  mainnet:** $[CONFIRM: 10,000] of cumulative USDC entry fees settled through
-  the `tf-competition` mainnet contract, sized on our Solana escrow history
-  ([CONFIRM: USDC settled] across 347 transactions from April to August 2026).
+  mainnet:** $2,500 of cumulative USDC entry fees settled through the
+  `tf-competition` mainnet contract. Basis: our Solana escrow settled $3,490 of
+  entry fees across 25 competitions between April and August 2026, about
+  $1,550 per 60 days; the fallback asks for about 1.6 times that pace.
 - **Footprint registered at award:** `tf-competition` contract ID, resolver and
   treasury accounts, the TradeFighters code in Noether's referral registry.
 - **Tracked alongside, not release conditions:** deposits into Noether vaults
